@@ -1,0 +1,152 @@
+## Executive Summary
+
+Detection ohne Response-Architektur erzeugt die Illusion von Sicherheit. Die meisten Organisationen investieren massiv in Sichtbarkeit – Log-Ingestion, Analytics Rules, Dashboards – aber haben keinen technisch implementierten Pfad von Alert zu Containment. Das Ergebnis: Alerts werden manuell triagiert, Playbooks existieren als Prosa, und Response-Zeiten hängen von individueller Analyst-Kompetenz ab statt von Systemdesign.
+
+Die zentrale These: **Detection und Response sind keine getrennten Disziplinen. Sie sind zwei Phasen desselben architektonischen Systems.**
+
+## Das Problem
+
+### Detection als Endprodukt
+
+In den meisten SIEM-Implementierungen ist der Alert das Endprodukt der Architektur. Alles, was danach passiert, liegt außerhalb des Systems:
+
+```
+[Log Sources] → [SIEM/Sentinel] → [Analytics Rule] → [Alert/Incident] → ???
+                                                                          ↓
+                                                              Manuell: Ticket, Chat, Eskalation
+```
+
+Was fehlt, ist der architektonische Anschluss. Der Alert hat kein definiertes Ziel. Kein System weiß, was als Nächstes passieren soll. Die Entscheidung liegt vollständig beim Analysten – unter Zeitdruck, mit unvollständigen Informationen.
+
+### Warum das kein Betriebsproblem ist
+
+Die Standardantwort: "Wir haben Playbooks."
+Die Realität: Ein Dokument in Confluence, das beschreibt, was ein Analyst tun soll, ist kein Prozess. Ein Prozess hat:
+
+- Definierte Inputs (welche Daten liegen zum Zeitpunkt des Alerts vor?)
+- Entscheidungslogik (welche Bedingungen führen zu welcher Aktion?)
+- Technische Schnittstellen (welches System führt die Aktion aus?)
+- Messbare Outputs (was ist das erwartete Ergebnis?)
+
+Ohne diese vier Elemente ist ein Playbook ein Wunsch, kein System.
+
+## Architektonischer Gap: Alert → Aktion
+
+### Sentinel-Kontext: Was nach dem Alert fehlt
+
+In Microsoft Sentinel existiert ein klarer Pfad bis zum Incident. Danach gibt es drei Optionen:
+
+| Option | Architektur-Implikation | Reifegrad |
+|--------|------------------------|-----------|
+| Manuell (Analyst triagiert) | Kein System, reine Personalabhängigkeit | Niedrig |
+| Playbook (Logic App) | Automation existiert, aber oft ohne Entscheidungslogik | Mittel |
+| Automation Rule + Playbook + Feedback | Geschlossener Loop von Detection bis Response | Hoch |
+
+Die meisten Organisationen sind bei Option 1 oder 2.
+
+### KQL-Beispiel: Alert ohne Response-Kontext
+
+Typische Analytics Rule – detektiert, liefert aber keinen Response-Kontext:
+
+```kql
+// Schlechtes Beispiel: Alert ohne Response-Relevanz
+SigninLogs
+| where ResultType == "50074"
+| where ConditionalAccessStatus == "failure"
+| summarize FailureCount = count() by UserPrincipalName, IPAddress, bin(TimeGenerated, 1h)
+| where FailureCount > 10
+```
+
+Dieser Alert sagt: "Jemand hat 10x gegen Conditional Access versagt." Aber er beantwortet nicht:
+- Ist der Account bereits kompromittiert?
+- Welche Ressourcen hat dieser Account?
+- Gibt es parallele Aktivität von dieser IP?
+- Was ist die empfohlene Containment-Aktion?
+
+Besserer Ansatz – Alert mit Response-Kontext:
+
+```kql
+// Alert mit angereichertem Response-Kontext
+let SuspiciousSignins = SigninLogs
+| where ResultType == "50074"
+| where ConditionalAccessStatus == "failure"
+| summarize FailureCount = count() by UserPrincipalName, IPAddress, bin(TimeGenerated, 1h)
+| where FailureCount > 10;
+//
+let UserContext = SuspiciousSignins
+| join kind=leftouter (
+    IdentityInfo
+    | summarize arg_max(TimeGenerated, *) by AccountUPN
+    | project AccountUPN, Department, JobTitle, AssignedRoles, IsAccountEnabled
+) on $left.UserPrincipalName == $right.AccountUPN;
+//
+let ParallelActivity = SuspiciousSignins
+| join kind=leftouter (
+    SigninLogs
+    | where TimeGenerated > ago(1h)
+    | where ResultType == 0
+    | summarize SuccessfulSignins = count(), 
+                AppsAccessed = make_set(AppDisplayName) 
+      by UserPrincipalName, IPAddress
+) on UserPrincipalName, IPAddress;
+//
+UserContext
+| join kind=leftouter ParallelActivity on UserPrincipalName
+| extend ResponseRecommendation = case(
+    isnotempty(AssignedRoles), "CRITICAL: Privileged account – immediate disable + review",
+    SuccessfulSignins > 0, "HIGH: Successful access after failures – session revoke + investigate",
+    FailureCount > 50, "HIGH: Brute force pattern – block IP + notify user",
+    "MEDIUM: Monitor + enrich"
+)
+| project TimeGenerated, UserPrincipalName, IPAddress, FailureCount,
+          Department, AssignedRoles, SuccessfulSignins, AppsAccessed,
+          ResponseRecommendation
+```
+
+Der Unterschied: Der zweite Alert liefert dem Analysten (oder der Automation) eine Entscheidungsgrundlage, nicht nur eine Benachrichtigung.
+
+## Design-Prinzip: Detection-Response als ein System
+
+```mermaid
+graph LR
+    A[Log Source] --> B[SIEM / Sentinel]
+    B --> C[Analytics Rule]
+    C --> D[Incident + Enrichment]
+    D --> E{Entscheidungslogik}
+    E -->|Automated| F[Containment Action]
+    E -->|Semi-Auto| G[Analyst + Empfehlung]
+    E -->|Manual| H[Eskalation]
+    F --> I[Feedback Loop]
+    G --> I
+    H --> I
+    I --> C
+
+    style E fill:#c0392b,color:#fff
+    style I fill:#2c3e50,color:#fff
+```
+
+Die Entscheidungslogik (rot) ist der architektonische Kern, der in den meisten Implementierungen fehlt. Der Feedback Loop (dunkel) ist das, was ein System von einem Tool unterscheidet.
+
+## Decision Matrix: Wann automatisieren?
+
+| Kriterium | Voll-Automation | Semi-Automation | Manuell |
+|-----------|----------------|-----------------|---------|
+| Reversibilität der Aktion | Hoch (Session revoke) | Mittel (Account disable) | Niedrig (Device wipe) |
+| Confidence der Detection | >95% | 70-95% | <70% |
+| Blast Radius bei False Positive | Gering (1 User) | Mittel (Team) | Hoch (Service) |
+| Zeitkritikalität | Sekunden | Minuten | Stunden |
+
+Faustregel: Automatisiere nur, was du rückgängig machen kannst.
+
+## Key Takeaways
+
+1. Ein Alert ohne definierten Response-Pfad ist eine Benachrichtigung, kein Sicherheitsmechanismus.
+2. Playbooks ohne technische Schnittstellen sind Dokumentation, keine Prozesse.
+3. Detection-Qualität zeigt sich nicht an der Anzahl der Alerts, sondern daran, ob der Alert eine Entscheidung ermöglicht.
+4. Response-Architektur beginnt beim Use-Case-Design, nicht nach dem Go-live.
+
+## Action Items
+
+- [ ] Bestandsaufnahme: Für wie viele aktive Analytics Rules existiert ein technisch implementierter Response-Pfad?
+- [ ] Gap-Analyse: Welche Incidents der letzten 30 Tage hatten keinen definierten Containment-Mechanismus?
+- [ ] Quick Win: Top-5-Incidents nach Häufigkeit mit Response-Kontext in der KQL-Query anreichern.
