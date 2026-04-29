@@ -1,18 +1,3 @@
----
-title: "S4E2 – Containment ist eine Designentscheidung"
-tags:
-  - cloudsec
-  - architecture
-  - decisions
-  - detection-response
-  - containment
-  - zero-trust
-series: "Von Detection zu Response"
-episode: "S4E2"
-status: draft
-created: 2026-03-08
----
-
 ## Executive Summary
 
 Containment-Fähigkeiten werden nicht im Incident geschaffen, sondern in der Architektur davor. Die meisten Organisationen planen Detection monatelang, testen aber ihre Containment-Capabilities erst beim ersten echten Incident. Das Ergebnis: Im Ernstfall stellt sich heraus, dass Netzwerksegmentierung nicht granular genug ist, Service Accounts alles mitreißen und Isolation-Aktionen ungetestete Seiteneffekte haben.
