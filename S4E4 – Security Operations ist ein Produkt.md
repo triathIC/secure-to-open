@@ -1,17 +1,3 @@
----
-title: "S4E4 – Security Operations ist ein Produkt"
-tags:
-  - cloudsec
-  - architecture
-  - decisions
-  - detection-response
-  - secops-product
-series: "Von Detection zu Response"
-episode: "S4E4"
-status: draft
-created: 2026-03-08
----
-
 ## Executive Summary
 
 Security Operations wird in den meisten Organisationen als Funktion behandelt – ein Team, das Alerts bearbeitet. Die reiferen Organisationen behandeln es als Produkt: mit definierten Nutzern, einer Roadmap, Metriken und iterativer Verbesserung. Diese Episode schließt den Bogen der gesamten Serie und zeigt, wie Detection, Response, Automation und Feedback als integriertes System zusammenwirken.
