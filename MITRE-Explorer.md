@@ -1,21 +1,3 @@
----
-title: "Bridge – MITRE ATT&CK KQL Explorer"
-tags:
-  - cloudsec
-  - architecture
-  - decisions
-  - detection-response
-  - mitre-attack
-  - kql
-  - open-source
-  - tool-launch
-series: "Von Detection zu Response"
-episode: "Bridge"
-status: draft
-created: 2026-03-08
-link: https://mitre.triath.xyz/
----
-
 ## Executive Summary
 
 Der MITRE ATT&CK KQL Explorer schließt die Lücke zwischen Coverage-Mapping und Detection-Code. Die meisten Organisationen nutzen den ATT&CK Navigator, um Coverage zu visualisieren – aber die Verbindung zu den tatsächlichen Analytics Rules ist manuell, fragmentiert und undokumentiert. Der Explorer verknüpft jede Technik der Enterprise Matrix direkt mit kuratierten, production-ready KQL-Queries für Microsoft Sentinel und Defender XDR.
