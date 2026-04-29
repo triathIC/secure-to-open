@@ -1,18 +1,3 @@
----
-title: "S4E3 – Response braucht Feedback-Loops"
-tags:
-  - cloudsec
-  - architecture
-  - decisions
-  - detection-response
-  - feedback-loops
-  - continuous-improvement
-series: "Von Detection zu Response"
-episode: "S4E3"
-status: draft
-created: 2026-03-08
----
-
 ## Executive Summary
 
 Die meisten SOCs operieren als Open-Loop-Systeme: Alert → Triage → Response → Close. Es fehlt der geschlossene Kreislauf, in dem Response-Daten zurück in Detection-Engineering fließen. Ohne diesen Feedback-Loop wiederholen sich dieselben Alerts, dieselben False Positives und dieselben manuellen Entscheidungen. Der Unterschied zwischen einem SOC, das arbeitet, und einem SOC, das lernt, ist architektonisch – nicht kulturell.
