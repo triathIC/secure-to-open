@@ -1,18 +1,3 @@
----
-title: "S4E1 – Automation ist kein Playbook mit API-Calls"
-tags:
-  - cloudsec
-  - architecture
-  - decisions
-  - detection-response
-  - automation
-  - soar
-series: "Von Detection zu Response"
-episode: "S4E1"
-status: draft
-created: 2026-03-08
----
-
 ## Executive Summary
 
 Die meisten SOAR-Implementierungen sind lineare Ketten: Trigger → API-Call → Ende. Es fehlen die drei Elemente, die Automation von Scripting unterscheiden: State Management (in welchem Zustand befindet sich der Incident?), Entscheidungslogik (welche Aktion bei welchem Kontext?) und Rollback (wie macht man eine automatisierte Aktion rückgängig?). Ohne diese drei Elemente ist SOAR kein Architekturgewinn, sondern ein automatisiertes Risiko.
